@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<title>GuardianAC</title>
+<style>
+  :root { color-scheme: dark light; }
+  html, body { margin: 0; height: 100%; background: #0f1115; color: #cfd3dc;
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  @media (prefers-color-scheme: light) { html, body { background: #f6f7f9; color: #22252b; } }
+  #msg { padding: 32px 16px; max-width: 640px; margin: 0 auto; }
+  #msg b { color: #5ec8ff; }
+  iframe { border: 0; width: 100%; height: 100%; display: block; }
+</style>
+</head>
+<body>
+<div id="msg"><b>◆ GuardianAC</b><br>Загружаю отчёт…</div>
+<script>
+// GuardianAC report viewer (GitHub Pages): https://<owner>.github.io/guard/<gist id>
+// The plugin uploads each report to a secret gist of <owner> (report.html, report.txt);
+// this page shows report.html in a sandboxed frame (its scripts run without this site's origin).
+(async function () {
+  var msg = document.getElementById('msg');
+  function say(text) { msg.innerHTML = '<b>◆ GuardianAC</b><br>' + text; }
+  var owner = location.hostname.split('.')[0];
+  var parts = location.pathname.split('/').filter(Boolean);
+  var id = (location.hash.replace('#', '') || parts[parts.length - 1] || '').trim();
+  if (!/^[0-9a-f]{20,40}$/i.test(id)) {
+    say('Отчёты открываются по ссылкам из <code>/gur</code>.');
+    return;
+  }
+  var raw = 'https://gist.githubusercontent.com/' + owner + '/' + id + '/raw/';
+  var html = null;
+  try {
+    var r = await fetch(raw + 'report.html', { cache: 'no-store' });
+    if (r.ok) html = await r.text();
+  } catch (e) { /* falls back to the API */ }
+  if (html === null) {
+    try {
+      var g = await fetch('https://api.github.com/gists/' + id, { headers: { Accept: 'application/vnd.github+json' } });
+      if (g.ok) {
+        var json = await g.json();
+        if (!json.owner || json.owner.login.toLowerCase() !== owner.toLowerCase()) throw new Error('owner');
+        var f = json.files && json.files['report.html'];
+        if (f) html = f.truncated ? await (await fetch(f.raw_url)).text() : f.content;
+      }
+    } catch (e) { html = null; }
+  }
+  if (html === null) {
+    say('Отчёта по этой ссылке нет (или GitHub сейчас не отвечает, попробуй обновить страницу).');
+    return;
+  }
+  // the page's "Скачать .txt" points at report.txt: the gist's raw file
+  html = html.split('href="report.txt"').join('href="' + raw + 'report.txt"');
+  var title = /<title>([^<]*)<\/title>/i.exec(html);
+  if (title) document.title = title[1];
+  var frame = document.createElement('iframe');
+  frame.setAttribute('sandbox', 'allow-scripts allow-popups allow-popups-to-escape-sandbox allow-downloads allow-modals');
+  frame.setAttribute('allow', 'clipboard-write');
+  frame.setAttribute('referrerpolicy', 'no-referrer');
+  frame.srcdoc = html;
+  document.body.replaceChildren(frame);
+})();
+</script>
+</body>
+</html>
