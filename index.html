@@ -22,12 +22,20 @@
 // GuardianAC report viewer (GitHub Pages): https://<owner>.github.io/guard/<gist id>
 // The plugin uploads each report to a secret gist of <owner> (report.html, report.txt);
 // this page shows report.html in a sandboxed frame (its scripts run without this site's origin).
+var BASE62 = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+function longId(shortId) {
+  var n = 0n;
+  for (var i = 0; i < shortId.length; i++) n = n * 62n + BigInt(BASE62.indexOf(shortId[i]));
+  return n.toString(16).padStart(32, '0');
+}
 (async function () {
   var msg = document.getElementById('msg');
   function say(text) { msg.innerHTML = '<b>◆ GuardianAC</b><br>' + text; }
   var owner = location.hostname.split('.')[0];
   var parts = location.pathname.split('/').filter(Boolean);
   var id = (location.hash.replace('#', '') || parts[parts.length - 1] || '').trim();
+  // the plugin writes a 32-digit gist id in base 62 (22 characters): back to hex
+  if (/^[0-9A-Za-z]{22}$/.test(id)) id = longId(id);
   if (!/^[0-9a-f]{20,40}$/i.test(id)) {
     say('Отчёты открываются по ссылкам из <code>/gur</code>.');
     return;
